@@ -283,3 +283,125 @@ trait KeySetChangeListener {
   def keySetChanged(newKeySet: Set[String])
 }
 ```
+
+# How to run
+
+To try these changes (at the moment only leader election module is available) you will need to patch upstream Kafka project 
+(patch is provided separately, see details below), build this project and change Kafka configuration file and classpath so it
+can use this jar as a plugin, then start Kafka as usual.
+
+Step by step instructions:
+
+I. Create Cassandra tables
+
+1. You will need 2 tables: `leader_election` and `kv` located in `kafka_cluster_1` Cassandra keyspace (keyspace is regulated by 
+the `plugin.cassandra.keyspace` setting in plugin.properties)
+
+In cqlsh execute (change replication factor (`X`) per your needs):
+
+```
+  CREATE KEYSPACE kafka_cluster_1
+    WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : X };
+
+  USE kafka_cluster_1;
+
+  CREATE TABLE leader_election (
+       resource text PRIMARY KEY,
+       owner text,
+       sup_data text
+  ) with default_time_to_live = 2;
+ 
+  CREATE TABLE kv (
+       key text PRIMARY KEY,
+       value text
+  ) with default_time_to_live = 2;
+```
+
+II. Building
+
+2. Patch Kafka so it supports plug-able consensus and storage modules
+
+```
+ # cd $WORKING_DIR
+ # git clone https://github.com/apache/kafka.git kafka-with-plugins
+ # cd kafka-with-plugins
+ # git reset --hard a5382a
+ # curl https://issues.apache.org/jira/secure/attachment/12776574/KIP-30-LE-WIP.patch > KIP-30-LE-WIP.patch
+ # git am KIP-30-LE-WIP.patch
+```
+
+3. Install Kafka jars to local maven repo so plug-able module interfaces (defined in Kafka `plugin-interface` sub-project) are available
+for this project (kafka-cassandra-plugin)
+
+```
+  # cd $WORKING_DIR/kafka-with-plugins
+  # ./gradlew -PscalaVersion=2.11 install -x signArchives
+```
+
+4. Build Kafka distribution archive
+
+```
+  # cd $WORKING_DIR/kafka-with-plugins
+  # ./gradlew -PscalaVersion=2.11 releaseTarGz -x signArchives
+```
+ 
+5. Build this project jar
+
+```
+ # cd $WORKING_DIR
+ # git clone https://github.com/riptano/kafka-cassandra-plugin.git kafka-cassandra-plugin
+ # switch the branch if needed
+ # cd kafka-with-plugins
+ # ./gradlew jar
+```
+
+III. Running
+
+Note: It is advisable you have _Oracle_ JDK installed (starting from version 6)
+
+6. Un-pack Kafka release archive and copy plugin jar and config file to the kafka working directory
+
+```
+ # cd $RUNNING_DIR
+ # cp $WORKING_DIR/core/build/... . 
+ # tar -xf kafka_2.11-0.9.1.0-SNAPSHOT.tgz
+ # mkdir kafka_2.11-0.9.1.0-SNAPSHOT/plugin
+ # cp $WORKING_DIR/kafka-cassandra-plugin/plugin.jar $RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/plugin
+ # cp $WORKING_DIR/kafka-cassandra-plugin/src/main/resource/plugin.properties $RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config
+```
+
+7. Specify your plugin metadata in Kafka `server.properties`
+
+Add these lines to the `$RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/server.properties` 
+
+(fix `plugin.configuration.file` setting to full path of the `plugin.properties` file on your running environment)
+
+```
+plugin.additional.jars=plugin/plugin.jar
+plugin.locator.classname=ly.stealth.kafka.plugin.cassandra.CassandraPluginLocator
+plugin.configuration.file=/opt/apache/kafka/config/plugin.properties
+```
+
+8. Specify you Cassandra cluster location in `plugin.properties`
+
+Search for `plugin.cassandra.contact.point=` entry in `$RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/plugin.properties`
+
+9. Enhance logging (optional, helpful for troubleshooting)
+
+Add these lines to `$RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/log4j.properties`
+
+```
+# Plugins configuration
+log4j.logger.ly.stealth.kafka.plugin.cassandra=DEBUG, kafkaAppender
+log4j.additivity.ly.stealth.kafka.plugin.cassandra=false
+log4j.logger.ly.stealth.kafka.plugin.cassandra.leader.election=TRACE, controllerAppender
+log4j.additivity.ly.stealth.kafka.plugin.cassandra.leader.election=false
+```
+
+10. Start Kafka
+
+E.g. (you may need sudo rights):
+
+```
+  # $RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/bin/kafka-server-start.sh $RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/server.properties 1>> /tmp/broker.log 2>> /tmp/broker.log &
+```
