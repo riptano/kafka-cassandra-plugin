@@ -33,7 +33,8 @@ class CassandraPluginLocator extends PluginLocator {
     val config = Config(new File(configFile))
 
     val session = {
-      val cluster = Cluster.builder().addContactPoint(config.CassandraContactPoint).build()
+      val contactPoints = config.CassandraContactPoints.split(",").map(_.trim)
+      val cluster = Cluster.builder().addContactPoints(contactPoints : _*).build()
       cluster.connect()
     }
 
@@ -43,11 +44,11 @@ class CassandraPluginLocator extends PluginLocator {
 
   override def getLeaderElection = {
     Option(leaderElection).getOrElse(
-      throw new IllegalStateException("LeaderElection plugin is not initialized. Call PluginInitializer.startup(configFile) first"))
+      throw new IllegalStateException("LeaderElection plugin is not initialized. Call PluginLocator.startup(configFile) first"))
   }
 
   override def getListenerRegistry = {
     Option(listenerRegistry).getOrElse(
-      throw new IllegalStateException("ListenerRegistry plugin is not initialized. Call PluginInitializer.startup(configFile) first"))
+      throw new IllegalStateException("ListenerRegistry plugin is not initialized. Call PluginLocator.startup(configFile) first"))
   }
 }

@@ -314,7 +314,7 @@ In cqlsh execute (change replication factor (`X`) per your needs):
   CREATE TABLE kv (
        key text PRIMARY KEY,
        value text
-  ) with default_time_to_live = 2;
+  );
 ```
 
 II. Building
@@ -382,9 +382,9 @@ plugin.locator.classname=ly.stealth.kafka.plugin.cassandra.CassandraPluginLocato
 plugin.configuration.file=/opt/apache/kafka/config/plugin.properties
 ```
 
-8. Specify you Cassandra cluster location in `plugin.properties`
+8. Specify you Cassandra cluster location (coma separated list of Cassandra host names) in `plugin.properties`
 
-Search for `plugin.cassandra.contact.point=` entry in `$RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/plugin.properties`
+Search for `plugin.cassandra.contact.points=` entry in `$RUNNING_DIR/kafka_2.11-0.9.1.0-SNAPSHOT/config/plugin.properties`
 
 9. Enhance logging (optional, helpful for troubleshooting)
 

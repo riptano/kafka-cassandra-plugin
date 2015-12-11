@@ -55,7 +55,7 @@ object Config extends LogUtils {
 
 class Config(props: Properties) {
 
-  val CassandraContactPoint = props.getProperty("plugin.cassandra.contact.point")
+  val CassandraContactPoints = props.getProperty("plugin.cassandra.contact.points")
   val CassandraKeySpace = props.getProperty("plugin.cassandra.keyspace")
 
   val LeaderElectionExecutorThreads = props.getProperty("plugin.cassandra.le.executor.threads").toInt
