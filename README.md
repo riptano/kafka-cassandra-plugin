@@ -3,6 +3,8 @@ Kafka Cassandra Plugin
 
 This is an implementation for [KIP-30](https://cwiki.apache.org/confluence/display/KAFKA/KIP-30+-+Allow+for+brokers+to+have+plug-able+consensus+and+meta+data+storage+sub+systems) - That is in progress being built to allow for brokers to have plug-able consensus and meta data storage sub systems. 
 
+It uses the patch under [KAFKA-2921](https://issues.apache.org/jira/browse/KAFKA-2921) to run it in.
+
 # Motivation
 Kafka Brokers today rely on Apache Zookeeper. Many folks in the community have expressed a desire to either change the zkclient and start using Apache Curator or allowing other systems like etcd, consul, Apache Cassandra and others to handle the role Zookeeper is currently playing. By allowing the brokers to have both a way to plug-in another server for storing the meta data and also for leader election then we can have the ability to-do this.
 
