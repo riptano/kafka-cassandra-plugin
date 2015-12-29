@@ -26,25 +26,11 @@ import org.apache.kafka.plugin.interface.{LeaderChangeListener, LeaderElection, 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-
-/**
- * 1)
- * CREATE KEYSPACE kafka_cluster_1
-  WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
- *
- * 2)
- * USE kafka_cluster_1;
- *
- * 3)
- * CREATE TABLE leader_election (
-      resource text PRIMARY KEY,
-      owner text,
-      sup_data text
- ) with default_time_to_live = 2;
- */
 class CassandraLeaderElection(session: Session,
                               config: Config,
                               resourceName: String = "kafka_controller") extends LeaderElection with LogUtils {
+
+  this.logIdent = s"[LeaderElection]: "
 
   private lazy val getLeaderStmt = session
     .prepare(s"SELECT owner, sup_data FROM ${config.CassandraKeySpace}.leader_election WHERE resource = ?;")
@@ -79,7 +65,7 @@ class CassandraLeaderElection(session: Session,
     renewTaskLock.synchronized {
       renewingTaskFuture = ex.scheduleAtFixedRate(new Runnable {
         override def run(): Unit = {
-          logger.info(s"Renewing session for leader $candidate")
+          trace(s"Renewing session for leader $candidate")
 
           val boundStatement = new BoundStatement(renewLeadershipStmt)
           session.execute(boundStatement.bind(candidate, supData, resourceName, candidate))
@@ -92,7 +78,7 @@ class CassandraLeaderElection(session: Session,
   val listeners = new mutable.ListBuffer[LeaderChangeListener]()
 
   private def tryAcquire(candidate: String, supData: String): Unit = {
-    logger.info(s"Trying to acquire leadership for $candidate")
+    info(s"Trying to acquire leadership for $candidate")
 
     val boundStatement = new BoundStatement(tryAcquireLeadershipStmt)
     session.execute(boundStatement.bind(resourceName, candidate, supData))
@@ -101,7 +87,7 @@ class CassandraLeaderElection(session: Session,
   private def cancelRenewTask(candidate: String) = {
     renewTaskLock.synchronized {
       if (renewingTaskFuture != null) {
-        logger.info(s"Renewing task is not empty - this candidate $candidate was a leader, cancelling renew task")
+        info(s"Renewing task is not empty - this candidate $candidate was a leader, cancelling renew task")
         renewingTaskFuture.cancel(true)
         renewingTaskFuture = null
       }
@@ -111,12 +97,12 @@ class CassandraLeaderElection(session: Session,
   private def setupLeaderWatchers(candidate: String, supData: String): Unit = {
     cacheListenerRegistry.addValueChangeListener(resourceName, getLeader.map(_._1), new ValueChangeListener {
       override def valueChanged(newValue: Option[String]): Unit = {
-        logger.info(s"New leader value - $newValue")
+        info(s"New leader value - $newValue")
 
         newValue match {
           case Some(newLeader) =>
             if (newLeader == candidate) {
-              logger.info(s"Candidate $candidate acquired leadership, starting renewing task")
+              info(s"Candidate $candidate acquired leadership, starting renewing task")
               startRenewTask(candidate, supData)
             } else {
               cancelRenewTask(candidate)
@@ -126,7 +112,7 @@ class CassandraLeaderElection(session: Session,
             tryAcquire(candidate, supData)
         }
 
-        logger.info(s"Calling on leader change listeners: ${listeners.size} total")
+        info(s"Calling on leader change listeners: ${listeners.size} total")
         listeners.synchronized {
           listeners.foreach {
             l => l.onLeaderChange(newValue)

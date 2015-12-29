@@ -296,10 +296,12 @@ Step by step instructions:
 
 I. Create Cassandra tables
 
-1. You will need 2 tables: `leader_election` and `kv` located in `kafka_cluster_1` Cassandra keyspace (keyspace is regulated by 
+1. You will need 3 tables: `leader_election`, `kv` and `group_membership` located in `kafka_cluster_1` Cassandra keyspace (keyspace is regulated by 
 the `plugin.cassandra.keyspace` setting in plugin.properties)
 
-In cqlsh execute (change replication factor (`X`) per your needs):
+In cqlsh execute (change replication factor (`X`) per your needs, note that all queries are executed with CL QUORUM,
+which means you will need `n/2 + 1` replicas to be alive. E.g. if you have 3 nodes Cassandra cluster, set `X` to 3, this
+way you will tolerate 1 node loss):
 
 ```
   CREATE KEYSPACE kafka_cluster_1
@@ -317,7 +319,15 @@ In cqlsh execute (change replication factor (`X`) per your needs):
        key text PRIMARY KEY,
        value text
   );
-```
+  
+  CREATE TABLE group_membership (
+         group text,
+         id text,
+         sup_data text,
+         pid timeuuid,
+         PRIMARY KEY (group, id)
+    ) with default_time_to_live = 2;
+``` 
 
 II. Building
 

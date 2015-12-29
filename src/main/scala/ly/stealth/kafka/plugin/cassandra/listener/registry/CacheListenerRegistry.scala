@@ -49,6 +49,7 @@ class CacheListenerRegistry(config: Config, executor: Option[ScheduledExecutorSe
       if (watchable == fetchedValue) {
         // cache contains up-to-date value, do nothing
       } else {
+        trace(s"About to call ${valueChangeListenerMap.get(key).size} listeners for key=$key, watchable=$watchable, fetchedValue=$fetchedValue")
         watchable = fetchedValue
         Utils.inLock(lock) {
           valueChangeListenerMap.get(key).foreach {
@@ -69,6 +70,7 @@ class CacheListenerRegistry(config: Config, executor: Option[ScheduledExecutorSe
       if (watchable == fetchedKeySet) {
         // cache contains up-to-date value, do nothing
       } else {
+        trace(s"About to call ${keySetChangeListenerMap.get(key).size} listeners for key=$key, watchable=$watchable, fetchedKeySet=$fetchedKeySet")
         watchable = fetchedKeySet
         Utils.inLock(lock) {
           keySetChangeListenerMap.get(key).foreach {
@@ -105,7 +107,7 @@ class CacheListenerRegistry(config: Config, executor: Option[ScheduledExecutorSe
           if (scheduledFuture.cancel(true)) {
             valueChangeFutures.remove(key)
           } else {
-            logger.warn(s"Failed to cancel value change observer for key $key")
+            warn(s"Failed to cancel value change observer for key $key")
           }
         case None =>
 
@@ -120,7 +122,7 @@ class CacheListenerRegistry(config: Config, executor: Option[ScheduledExecutorSe
           if (scheduledFuture.cancel(true)) {
             keySetChangeFutures.remove(key)
           } else {
-            logger.warn(s"Failed to cancel key-set change observer for key $key")
+            warn(s"Failed to cancel key-set change observer for key $key")
           }
         case None =>
       }
@@ -149,13 +151,14 @@ class CacheListenerRegistry(config: Config, executor: Option[ScheduledExecutorSe
     }
   }
 
-  protected[this] def addKeySetChangeListener(namespace: String, fetcher: => Set[String], listener: KeySetChangeListener): Unit = {
+  def addKeySetChangeListener(namespace: String, fetcher: => Set[String], listener: KeySetChangeListener): Unit = {
     Utils.inLock(lock) {
       val listeners = keySetChangeListenerMap.getOrElseUpdate(namespace, new ListBuffer[KeySetChangeListener])
       listeners.append(listener)
       // it is the first listener for this key
-      if (listeners.size == 1)
+      if (listeners.size == 1){
         attachKeySetChangeListeners(namespace, fetcher)
+      }
     }
   }
 

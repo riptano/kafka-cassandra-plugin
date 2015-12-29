@@ -61,6 +61,10 @@ class Config(props: Properties) {
   val LeaderElectionExecutorThreads = props.getProperty("plugin.cassandra.le.executor.threads").toInt
   val LeaderElectionRenewTTLPeriod = props.getProperty("plugin.cassandra.le.renew.ttl.period.ms").toLong
 
+  val GroupMembershipExecutorThreads = props.getProperty("plugin.cassandra.gm.executor.threads").toInt
+  val GroupMembershipRenewTTLPeriod = props.getProperty("plugin.cassandra.gm.renew.ttl.period.ms").toLong
+  val GroupMembershipRenewRetries = props.getProperty("plugin.cassandra.gm.renew.retries").toInt
+
   val ListenerRegistryExecutorThreads = props.getProperty("plugin.cassandra.lr.executor.threads").toInt
   val ListenerRegistryPullPeriod = props.getProperty("plugin.cassandra.lr.pull.period.ms").toLong
 }
